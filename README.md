@@ -206,7 +206,7 @@ No manual cleanup required when closing the application.
 
 ## License
 
-[Specify your license here]
+[MIT License](https://github.com/josuebatista/ADSSQLCommander/blob/main/LICENSE)
 
 ## Author
 
