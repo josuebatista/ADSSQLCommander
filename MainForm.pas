@@ -4,12 +4,13 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Grids, DBGrids, DB, DBTables, ADODB, ExtCtrls, Buttons;
+  Dialogs, StdCtrls, Grids, DBGrids, DB, DBTables, ADODB, ExtCtrls, Buttons,
+  ComCtrls;
 
 type
   TADSform = class(TForm)
     DataSource: TDataSource;
-    DBGrid1: TDBGrid;
+    DBGridSqlResults: TDBGrid;
     ExecuteBtn: TButton;
     ADOQuery: TADOQuery;
     ADOConnection1: TADOConnection;
@@ -17,23 +18,37 @@ type
     RadioGroup1: TRadioGroup;
     TableName: TEdit;
     Label1: TLabel;
-    Label2: TLabel;
+    LabelSqlCommand: TLabel;
     TableIndex: TEdit;
     Label3: TLabel;
     TableFilter: TEdit;
     Label4: TLabel;
-    ConnectStr: TMemo;
-    SqlCommand: TMemo;
-    Label5: TLabel;
-    Label6: TLabel;
+    ConnectString: TMemo;
+    LabelConnectionStrring: TLabel;
+    LabelSqlResults: TLabel;
     CloseAllBtn: TBitBtn;
     ExportCsvBtn: TButton;
     ExportSaveDialog: TSaveDialog;
+    PageControlSql: TPageControl;
+    TabSheet1: TTabSheet;
+    SqlCommand1: TMemo;
+    AddTabBtn: TButton;
+    RemoveTabBtn: TButton;
+    LoadSqlBtn: TButton;
+    SaveSqlBtn: TButton;
+    OpenSqlDialog: TOpenDialog;
+    SaveSqlDialog: TSaveDialog;
     procedure ExecuteBtnClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure ExportCsvBtnClick(Sender: TObject);
+    procedure AddTabBtnClick(Sender: TObject);
+    procedure RemoveTabBtnClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure LoadSqlBtnClick(Sender: TObject);
+    procedure SaveSqlBtnClick(Sender: TObject);
   private
     { Private declarations }
+    function GetActiveSqlMemo: TMemo;
   public
     { Public declarations }
   end;
@@ -154,28 +169,215 @@ begin
   end;
 end;
 
+function TADSform.GetActiveSqlMemo: TMemo;
+var
+  ActiveTab: TTabSheet;
+  i: Integer;
+begin
+  Result := nil;
+  if PageControlSql.PageCount = 0 then
+    Exit;
+
+  ActiveTab := PageControlSql.ActivePage;
+  if not Assigned(ActiveTab) then
+    Exit;
+
+  // Find the memo in the active tab
+  for i := 0 to ActiveTab.ControlCount - 1 do
+  begin
+    if ActiveTab.Controls[i] is TMemo then
+    begin
+      Result := TMemo(ActiveTab.Controls[i]);
+      Exit;
+    end;
+  end;
+end;
+
+procedure TADSform.FormCreate(Sender: TObject);
+begin
+  // Initial tab is already created in the DFM
+  // Nothing special needed here for now
+end;
+
+procedure TADSform.AddTabBtnClick(Sender: TObject);
+var
+  NewTab: TTabSheet;
+  NewMemo: TMemo;
+  TabCount: Integer;
+begin
+  TabCount := PageControlSql.PageCount + 1;
+
+  // Create new tab sheet
+  NewTab := TTabSheet.Create(PageControlSql);
+  NewTab.PageControl := PageControlSql;
+  NewTab.Caption := 'Query ' + IntToStr(TabCount);
+
+  // Create memo for the new tab
+  NewMemo := TMemo.Create(NewTab);
+  NewMemo.Parent := NewTab;
+  NewMemo.Align := alClient;
+  NewMemo.Font.Charset := ANSI_CHARSET;
+  NewMemo.Font.Name := 'Courier';
+  NewMemo.Font.Height := -12;
+  NewMemo.ScrollBars := ssBoth;
+  NewMemo.WordWrap := False;
+  NewMemo.Lines.Clear;
+
+  // Make the new tab active
+  PageControlSql.ActivePage := NewTab;
+end;
+
+procedure TADSform.RemoveTabBtnClick(Sender: TObject);
+var
+  ActiveTab: TTabSheet;
+  TabIndex: Integer;
+begin
+  // Don't allow removing the last tab
+  if PageControlSql.PageCount <= 1 then
+  begin
+    ShowMessage('Cannot remove the last tab.');
+    Exit;
+  end;
+
+  ActiveTab := PageControlSql.ActivePage;
+  if not Assigned(ActiveTab) then
+    Exit;
+
+  if MessageDlg('Remove tab "' + ActiveTab.Caption + '"?',
+                mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    TabIndex := PageControlSql.ActivePageIndex;
+    ActiveTab.Free;
+
+    // Select the previous tab, or first tab if we removed the first one
+    if TabIndex > 0 then
+      PageControlSql.ActivePageIndex := TabIndex - 1
+    else if PageControlSql.PageCount > 0 then
+      PageControlSql.ActivePageIndex := 0;
+  end;
+end;
+
+procedure TADSform.LoadSqlBtnClick(Sender: TObject);
+var
+  ActiveMemo: TMemo;
+  SqlFile: TextFile;
+  Line: string;
+  FileContent: TStringList;
+begin
+  // Get the active SQL memo
+  ActiveMemo := GetActiveSqlMemo;
+  if not Assigned(ActiveMemo) then
+  begin
+    ShowMessage('No SQL tab available.');
+    Exit;
+  end;
+
+  // Show the open dialog
+  if not OpenSqlDialog.Execute then
+    Exit;
+
+  try
+    FileContent := TStringList.Create;
+    try
+      // Load the file into the string list
+      FileContent.LoadFromFile(OpenSqlDialog.FileName);
+
+      // Load the content into the active memo
+      ActiveMemo.Lines.Assign(FileContent);
+
+      ShowMessage('SQL file loaded successfully!' + #13#10 +
+                  'File: ' + OpenSqlDialog.FileName + #13#10 +
+                  'Lines: ' + IntToStr(FileContent.Count));
+    finally
+      FileContent.Free;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error loading SQL file: ' + E.Message);
+  end;
+end;
+
+procedure TADSform.SaveSqlBtnClick(Sender: TObject);
+var
+  ActiveMemo: TMemo;
+  FileContent: TStringList;
+begin
+  // Get the active SQL memo
+  ActiveMemo := GetActiveSqlMemo;
+  if not Assigned(ActiveMemo) then
+  begin
+    ShowMessage('No SQL tab available.');
+    Exit;
+  end;
+
+  // Check if there's content to save
+  if ActiveMemo.Lines.Count = 0 then
+  begin
+    if MessageDlg('The SQL tab is empty. Save anyway?',
+                  mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+      Exit;
+  end;
+
+  // Configure the Save Dialog with a default filename based on tab caption
+  SaveSqlDialog.FileName := StringReplace(
+    PageControlSql.ActivePage.Caption, ' ', '_', [rfReplaceAll]) + '.sql';
+
+  // Show the save dialog
+  if not SaveSqlDialog.Execute then
+    Exit;
+
+  try
+    FileContent := TStringList.Create;
+    try
+      // Copy memo content to string list
+      FileContent.Assign(ActiveMemo.Lines);
+
+      // Save to file
+      FileContent.SaveToFile(SaveSqlDialog.FileName);
+
+      ShowMessage('SQL file saved successfully!' + #13#10 +
+                  'File: ' + SaveSqlDialog.FileName + #13#10 +
+                  'Lines: ' + IntToStr(FileContent.Count));
+    finally
+      FileContent.Free;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error saving SQL file: ' + E.Message);
+  end;
+end;
+
 procedure TADSform.ExecuteBtnClick(Sender: TObject);
 var
   ErrorMsg: string;
   CleanSQL: string;
   RecordCount: Integer;
+  ActiveMemo: TMemo;
 begin
      if RadioGroup1.ItemIndex = 0 then
      begin
          ADOQuery.Active := False;
          ADOTable.Active := False;
-         
+
+         // Get the active SQL memo from the current tab
+         ActiveMemo := GetActiveSqlMemo;
+         if not Assigned(ActiveMemo) then
+         begin
+           ShowMessage('No SQL tab available.');
+           Exit;
+         end;
+
          // Use CleanConnectionString for connection strings
-         ADOQuery.ConnectionString := CleanConnectionString(ConnectStr.Text);
-         
-         // Use CleanSQLString for SQL commands
-         CleanSQL := CleanSQLString(SqlCommand.Text);
+         ADOQuery.ConnectionString := CleanConnectionString(ConnectString.Text);
+
+         // Use CleanSQLString for SQL commands from active tab
+         CleanSQL := CleanSQLString(ActiveMemo.Text);
          
          // Validate SQL before executing
          if not ValidateSQLSyntax(ADOQuery, CleanSQL, ErrorMsg) then
          begin
            ShowMessage('Cannot execute SQL.' + #13#10 + ErrorMsg);
-           Label6.Caption := 'SQL Results: 0 records';
+           LabelSqlResults.Caption := 'SQL Results: 0 records';
            Exit;
          end;
          
@@ -186,7 +388,7 @@ begin
          
          // Get record count and update label
          RecordCount := ADOQuery.RecordCount;
-         Label6.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
+         LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
      end 
      else
      begin
@@ -194,7 +396,7 @@ begin
          ADOTable.Active := False;
          
          // Use CleanConnectionString for connection strings
-         ADOTable.ConnectionString := CleanConnectionString(ConnectStr.Text);
+         ADOTable.ConnectionString := CleanConnectionString(ConnectString.Text);
          
          ADOTable.TableName := TableName.Text;
          ADOTable.IndexName := TableIndex.Text;
@@ -208,7 +410,7 @@ begin
          
          // Get record count for table mode
          RecordCount := ADOTable.RecordCount;
-         Label6.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
+         LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
      end;
 end;
 
@@ -329,7 +531,7 @@ begin
         // Update label every 100 records for progress indication
         if RecordsProcessed mod 100 = 0 then
         begin
-          Label6.Caption := 'Exporting: ' + IntToStr(RecordsProcessed) + ' records...';
+          LabelSqlResults.Caption := 'Exporting: ' + IntToStr(RecordsProcessed) + ' records...';
           Application.ProcessMessages;
         end;
         
@@ -337,7 +539,7 @@ begin
       end;
       
       // Restore original label
-      Label6.Caption := 'SQL Results: ' + IntToStr(ActiveDataSet.RecordCount) + ' records';
+      LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(ActiveDataSet.RecordCount) + ' records';
       
       ShowMessage('Export completed successfully!' + #13#10 + 
                   'File: ' + ExportSaveDialog.FileName + #13#10 +
@@ -353,7 +555,7 @@ begin
     on E: Exception do
     begin
       ShowMessage('Error exporting to CSV: ' + E.Message);
-      Label6.Caption := 'SQL Results: ' + IntToStr(ActiveDataSet.RecordCount) + ' records';
+      LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(ActiveDataSet.RecordCount) + ' records';
     end;
   end;
   
