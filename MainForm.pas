@@ -16,7 +16,7 @@ type
     ADOConnection1: TADOConnection;
     ADOTable: TADOTable;
     RadioGroup1: TRadioGroup;
-    TableName: TEdit;
+    TableName: TComboBox;
     Label1: TLabel;
     LabelSqlCommand: TLabel;
     TableIndex: TEdit;
@@ -46,9 +46,11 @@ type
     procedure FormCreate(Sender: TObject);
     procedure LoadSqlBtnClick(Sender: TObject);
     procedure SaveSqlBtnClick(Sender: TObject);
+    procedure RadioGroup1Click(Sender: TObject);
   private
     { Private declarations }
     function GetActiveSqlMemo: TMemo;
+    procedure PopulateTableList;
   public
     { Public declarations }
   end;
@@ -347,6 +349,134 @@ begin
   end;
 end;
 
+procedure TADSform.PopulateTableList;
+var
+  SearchRec: TSearchRec;
+  DataPath: string;
+  ConnStr: string;
+  PosStart, PosEnd: Integer;
+  TableFileName: string;
+begin
+  TableName.Items.Clear;
+  TableName.Text := '';
+
+  // Check if connection string is provided
+  if Trim(ConnectString.Text) = '' then
+  begin
+    ShowMessage('Please enter a connection string first.');
+    Exit;
+  end;
+
+  try
+    // Extract the Data Source path from the connection string
+    ConnStr := UpperCase(CleanConnectionString(ConnectString.Text));
+    PosStart := Pos('DATA SOURCE=', ConnStr);
+
+    if PosStart = 0 then
+    begin
+      ShowMessage('Cannot find Data Source in connection string.');
+      Exit;
+    end;
+
+    PosStart := PosStart + Length('DATA SOURCE=');
+    PosEnd := Pos(';', Copy(ConnStr, PosStart, Length(ConnStr)));
+
+    if PosEnd > 0 then
+      DataPath := Copy(CleanConnectionString(ConnectString.Text), PosStart, PosEnd - 1)
+    else
+      DataPath := Copy(CleanConnectionString(ConnectString.Text), PosStart, Length(ConnStr) - PosStart + 1);
+
+    DataPath := Trim(DataPath);
+
+    // Extract directory path from the .add file
+    DataPath := ExtractFilePath(DataPath);
+
+    if not DirectoryExists(DataPath) then
+    begin
+      ShowMessage('Database directory not found: ' + DataPath);
+      Exit;
+    end;
+
+    // Search for table files (.adt for ADT format, .dbf for DBF format)
+    // First look for .adt files (Advantage native format)
+    if FindFirst(DataPath + '*.adt', faAnyFile, SearchRec) = 0 then
+    begin
+      repeat
+        if (SearchRec.Attr and faDirectory) = 0 then
+        begin
+          TableFileName := ChangeFileExt(SearchRec.Name, '');
+          TableName.Items.Add(TableFileName);
+        end;
+      until FindNext(SearchRec) <> 0;
+      FindClose(SearchRec);
+    end;
+
+    // Also look for .dbf files (DBF format)
+    if FindFirst(DataPath + '*.dbf', faAnyFile, SearchRec) = 0 then
+    begin
+      repeat
+        if (SearchRec.Attr and faDirectory) = 0 then
+        begin
+          TableFileName := ChangeFileExt(SearchRec.Name, '');
+          // Only add if not already in the list (in case both .adt and .dbf exist)
+          if TableName.Items.IndexOf(TableFileName) = -1 then
+            TableName.Items.Add(TableFileName);
+        end;
+      until FindNext(SearchRec) <> 0;
+      FindClose(SearchRec);
+    end;
+
+    // Sort alphabetically
+    TableName.Sorted := True;
+
+    if TableName.Items.Count > 0 then
+      ShowMessage('Found ' + IntToStr(TableName.Items.Count) + ' tables in: ' + DataPath)
+    else
+      ShowMessage('No table files found in: ' + DataPath + #13#10 +
+                  'Looking for .adt and .dbf files.');
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error retrieving table list: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TADSform.RadioGroup1Click(Sender: TObject);
+begin
+  // When ADO Table mode is selected (ItemIndex = 1), populate the table list
+  if RadioGroup1.ItemIndex = 1 then
+  begin
+    PopulateTableList;
+  end;
+end;
+
+procedure ClearDataSetFields(DataSet: TDataSet);
+var
+  i: Integer;
+  TempField: TField;
+begin
+  // Close the dataset first
+  if DataSet.Active then
+    DataSet.Close;
+
+  // Destroy all field components in reverse order
+  for i := DataSet.FieldCount - 1 downto 0 do
+  begin
+    TempField := DataSet.Fields[i];
+    if Assigned(TempField) then
+    begin
+      TempField.DataSet := nil;  // Disconnect from dataset first
+      TempField.Free;
+    end;
+  end;
+
+  // Clear field definitions as well
+  if DataSet is TADODataSet then
+    TADODataSet(DataSet).FieldDefs.Clear;
+end;
+
 procedure TADSform.ExecuteBtnClick(Sender: TObject);
 var
   ErrorMsg: string;
@@ -356,8 +486,9 @@ var
 begin
      if RadioGroup1.ItemIndex = 0 then
      begin
-         ADOQuery.Active := False;
-         ADOTable.Active := False;
+         // Clear both datasets to prevent conflicts
+         ClearDataSetFields(ADOTable);
+         ClearDataSetFields(ADOQuery);
 
          // Get the active SQL memo from the current tab
          ActiveMemo := GetActiveSqlMemo;
@@ -372,7 +503,7 @@ begin
 
          // Use CleanSQLString for SQL commands from active tab
          CleanSQL := CleanSQLString(ActiveMemo.Text);
-         
+
          // Validate SQL before executing
          if not ValidateSQLSyntax(ADOQuery, CleanSQL, ErrorMsg) then
          begin
@@ -380,54 +511,105 @@ begin
            LabelSqlResults.Caption := 'SQL Results: 0 records';
            Exit;
          end;
-         
+
          ADOQuery.SQL.Clear;
          ADOQuery.SQL.Add(CleanSQL);
          DataSource.DataSet := ADOQuery;
          ADOQuery.Active := True;
-         
+
          // Get record count and update label
          RecordCount := ADOQuery.RecordCount;
          LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
-     end 
+     end
      else
      begin
-         ADOQuery.Active := False;
-         ADOTable.Active := False;
-         
-         // Use CleanConnectionString for connection strings
-         ADOTable.ConnectionString := CleanConnectionString(ConnectString.Text);
-         
-         ADOTable.TableName := TableName.Text;
-         ADOTable.IndexName := TableIndex.Text;
-         ADOTable.Filter    := TableFilter.Text;
-         if length(ADOTable.Filter) > 0 then 
-           ADOTable.Filtered := True 
-         else 
+         try
+           // Clear both datasets to prevent conflicts
+           ClearDataSetFields(ADOQuery);
+           ClearDataSetFields(ADOTable);
+
+           // Clear previous table settings
+           ADOTable.TableName := '';
+           ADOTable.IndexName := '';
+           ADOTable.Filter := '';
            ADOTable.Filtered := False;
-         DataSource.DataSet := ADOTable;
-         ADOTable.Active := True;
-         
-         // Get record count for table mode
-         RecordCount := ADOTable.RecordCount;
-         LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
+
+           // Force recreation by changing connection
+           ADOTable.ConnectionString := '';
+           Application.ProcessMessages;  // Allow cleanup to complete
+
+           // Use CleanConnectionString for connection strings
+           ADOTable.ConnectionString := CleanConnectionString(ConnectString.Text);
+
+           ADOTable.TableName := TableName.Text;
+           ADOTable.IndexName := TableIndex.Text;
+           ADOTable.Filter    := TableFilter.Text;
+           if length(ADOTable.Filter) > 0 then
+             ADOTable.Filtered := True
+           else
+             ADOTable.Filtered := False;
+           DataSource.DataSet := ADOTable;
+           ADOTable.Active := True;
+
+           // Get record count for table mode
+           RecordCount := ADOTable.RecordCount;
+           LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
+
+         except
+           on E: Exception do
+           begin
+             // If we still get a component naming error, try one more time with full reset
+             if Pos('already exists', E.Message) > 0 then
+             begin
+               ShowMessage('Component conflict detected. Attempting to recover...');
+
+               // Nuclear option: clear everything again
+               ClearDataSetFields(ADOTable);
+               ADOTable.Close;
+               ADOTable.ConnectionString := '';
+               Application.ProcessMessages;
+
+               // Try again
+               ADOTable.ConnectionString := CleanConnectionString(ConnectString.Text);
+               ADOTable.TableName := TableName.Text;
+               ADOTable.IndexName := TableIndex.Text;
+               ADOTable.Filter := TableFilter.Text;
+               if length(ADOTable.Filter) > 0 then
+                 ADOTable.Filtered := True
+               else
+                 ADOTable.Filtered := False;
+               DataSource.DataSet := ADOTable;
+
+               try
+                 ADOTable.Active := True;
+                 RecordCount := ADOTable.RecordCount;
+                 LabelSqlResults.Caption := 'SQL Results: ' + IntToStr(RecordCount) + ' records';
+               except
+                 on E2: Exception do
+                 begin
+                   ShowMessage('Error opening table: ' + E2.Message);
+                   LabelSqlResults.Caption := 'SQL Results: Error';
+                 end;
+               end;
+             end
+             else
+               raise;  // Re-raise if it's a different error
+           end;
+         end;
      end;
 end;
 
 procedure TADSform.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   try
-    // Close all active datasets
-    if ADOQuery.Active then
-      ADOQuery.Active := False;
-    
-    if ADOTable.Active then
-      ADOTable.Active := False;
-    
+    // Clear all field components before closing
+    ClearDataSetFields(ADOQuery);
+    ClearDataSetFields(ADOTable);
+
     // Close the connection if it's open
     if ADOConnection1.Connected then
       ADOConnection1.Connected := False;
-      
+
   except
     on E: Exception do
     begin
@@ -435,7 +617,7 @@ begin
       // Or optionally log them
     end;
   end;
-  
+
   Action := caFree;
 end;
 

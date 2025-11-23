@@ -3,7 +3,7 @@ object ADSform: TADSform
   Top = 133
   Width = 1200
   Height = 800
-  Caption = 'ADS SQL Commander - v1.1'
+  Caption = 'ADS SQL Commander - v1.2'
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -109,12 +109,14 @@ object ADSform: TADSform
       'ADO Query'
       'ADO Table')
     TabOrder = 2
+    OnClick = RadioGroup1Click
   end
-  object TableName: TEdit
+  object TableName: TComboBox
     Left = 432
     Top = 16
     Width = 145
     Height = 21
+    ItemHeight = 13
     TabOrder = 3
   end
   object TableIndex: TEdit

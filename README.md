@@ -58,10 +58,14 @@ ADS SQL Commander is a desktop application built with Delphi 7 that provides a u
 ### Table Browse Mode
 
 - **Direct Table Access**
-  - Table name selection
+  - **Searchable Table List**: Automatic population of available tables from the database
+  - **Dropdown Selection**: Click dropdown to see all tables, or type to search/filter
+  - **File System Scan**: Scans database directory for .adt (Advantage native) and .dbf (DBF format) table files
+  - **Alphabetical Sorting**: Tables automatically sorted for easy navigation
   - Index specification for optimized browsing
   - Custom filter expressions
   - Automatic filter activation/deactivation
+  - Works with ADS Local Server (no system schema required)
 
 ### Data Export
 
@@ -112,6 +116,7 @@ ADS SQL Commander is a desktop application built with Delphi 7 that provides a u
 - `TPageControl` - Tabbed interface for multiple SQL queries
 - `TTabSheet` - Individual query tab pages
 - `TMemo` - Multi-line text input (Connection string, SQL commands in each tab)
+- `TComboBox` - Searchable table name dropdown (v1.2+)
 - `TEdit` - Single-line input (Table settings)
 - `TRadioGroup` - Mode selection
 - `TOpenDialog` - SQL file open dialog
@@ -138,6 +143,12 @@ ValidateSQLBasic(const SQLText: string): Boolean
 ValidateSQLSyntax(AQuery: TADOQuery; const SQLText: string; out ErrorMsg: string): Boolean
 ```
 Two-tier validation system providing both client-side and server-side SQL syntax checking.
+
+#### Field Component Management (v1.2+)
+```delphi
+ClearDataSetFields(DataSet: TDataSet)
+```
+Comprehensive cleanup procedure that destroys dynamically created field components to prevent ADO component naming conflicts when switching between tables or query modes.
 
 ## Usage
 
@@ -188,10 +199,14 @@ Two-tier validation system providing both client-side and server-side SQL syntax
 ### Browsing Tables
 
 1. Select the **Table** radio button
-2. Enter the table name in the **TableName** field
-3. (Optional) Specify an index in the **TableIndex** field
-4. (Optional) Enter a filter expression in the **TableFilter** field
-5. Click **Execute** button
+2. The application automatically scans the database directory and populates the table list
+3. **Select a table** from the dropdown:
+   - Click the dropdown arrow to see all available tables (alphabetically sorted)
+   - Or type in the box to search/filter table names
+   - Tables are discovered by scanning for .adt and .dbf files in the database directory
+4. (Optional) Specify an index in the **TableIndex** field
+5. (Optional) Enter a filter expression in the **TableFilter** field
+6. Click **Execute** button
 
 ### Exporting Data
 
@@ -254,7 +269,21 @@ Josue - MySQL Developer and Architect
 
 ## Version History
 
-**Version 1.1** (Current)
+**Version 1.2** (Current)
+- **Searchable Table List**: Automatic discovery and population of database tables
+- **Enhanced Table Browse Mode**:
+  - TComboBox dropdown with searchable/filterable table names
+  - File system-based table discovery (scans .adt and .dbf files)
+  - Automatic alphabetical sorting of table names
+  - Works with ADS Local Server without requiring system schema access
+- **ADO Field Component Management**:
+  - Comprehensive field cleanup to prevent component naming conflicts
+  - Automatic field destruction and FieldDefs clearing when switching tables
+  - Error recovery mechanism for persistent component conflicts
+  - Proper dataset cleanup in both Query and Table modes
+- **Improved Stability**: Robust handling of table switching and mode changes
+
+**Version 1.1**
 - Multiple SQL query tabs with add/remove functionality
 - Load and save SQL files (.sql, .txt)
 - Enhanced UI with tabbed interface
