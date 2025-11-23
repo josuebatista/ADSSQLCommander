@@ -9,14 +9,15 @@
 ```
 ADS_SQL_Commander/
 ├── ADSSQLCommander.dpr          # Main program entry point
-├── MainForm.pas                  # Core application logic (363 lines)
+├── MainForm.pas                  # Core application logic (566 lines)
 ├── MainForm.dfm                  # Form UI definition
-├── ADSSQLCommander.exe          # Compiled executable (934 KB)
+├── ADSSQLCommander.exe          # Compiled executable
 ├── ADSSQLCommander.res          # Resource file
 ├── adscmd.ico                   # Application icons
 ├── adssqlcmdr_icon.ico
 ├── adssqlcmdr_icon.svg
 ├── README.md                    # Comprehensive user documentation
+├── CLAUDE.md                    # Project context for AI assistants
 └── .gitignore                   # Git exclusions
 ```
 
@@ -46,8 +47,8 @@ ADS_SQL_Commander/
 - `RemoveTabBtn: TButton` - Remove current SQL query tab
 - `LoadSqlBtn: TButton` - Load SQL file into active tab
 - `SaveSqlBtn: TButton` - Save active tab's SQL to file
-- `RadioGroup1: TRadioGroup` - Mode selection (Query/Table)
-- `TableName: TEdit` - Table name for browse mode
+- `RadioGroup1: TRadioGroup` - Mode selection (Query/Table) with `OnClick` event
+- `TableName: TComboBox` - **v1.2+** Searchable dropdown for table selection (was TEdit in v1.0-1.1)
 - `TableIndex: TEdit` - Index specification
 - `TableFilter: TEdit` - Filter expression
 - `ExecuteBtn: TButton` - Execute query/browse
@@ -82,6 +83,8 @@ ADS_SQL_Commander/
 ### 2. Dual Query Modes
 - **Query Mode** (RadioGroup1.ItemIndex = 0): Execute custom SQL commands
 - **Table Mode** (RadioGroup1.ItemIndex = 1): Direct table access with filtering
+  - **v1.2+**: Automatic table discovery via `PopulateTableList()` when Table mode is selected
+  - **v1.2+**: Searchable/filterable dropdown with alphabetically sorted table names
 
 ### 3. SQL Validation System
 
@@ -127,38 +130,86 @@ Two-tier validation approach:
 4. Show progress every 100 records
 5. Display completion summary
 
-### 6. Graceful Shutdown (`FormClose`)
+### 6. Table List Population (`PopulateTableList`) - v1.2+
 
+**Features:**
+- File system-based table discovery for ADS Local Server
+- Scans database directory for .adt (Advantage native) and .dbf (DBF format) files
+- Automatic alphabetical sorting
+- Duplicate prevention (if both .adt and .dbf exist for same table)
+- Location: [MainForm.pas:350-442](MainForm.pas#L350-L442)
+
+**Algorithm:**
+1. Parse connection string to extract Data Source path
+2. Extract directory path from .add database file
+3. Scan for .adt files, add to list
+4. Scan for .dbf files, add if not already present
+5. Sort alphabetically and populate ComboBox
+6. Display count of tables found
+
+### 7. ADO Field Component Management (`ClearDataSetFields`) - v1.2+
+
+**Purpose:** Prevents "component name already exists" errors when switching tables
+
+**Features:**
+- Closes dataset if active
+- Disconnects fields from dataset before destroying: `TempField.DataSet := nil`
+- Destroys all field components in reverse order
+- Clears FieldDefs for ADO datasets
+- Location: [MainForm.pas:453-476](MainForm.pas#L453-L476)
+
+**Critical Implementation Details:**
+- Called before opening any dataset (Query or Table mode)
+- Reverse iteration (downto 0) prevents index shifting issues
+- Used in `ExecuteBtnClick` for both modes
+- Used in `FormClose` for proper cleanup
+- Includes error recovery mechanism in `ExecuteBtnClick` with retry logic
+
+### 8. Graceful Shutdown (`FormClose`)
+
+- **v1.2+**: Clears field components via `ClearDataSetFields()`
 - Closes `ADOQuery` and `ADOTable` if active
 - Disconnects `ADOConnection1` if connected
 - Silently handles cleanup errors
-- Location: [MainForm.pas:215-238](MainForm.pas#L215-L238)
+- Location: [MainForm.pas:600-620](MainForm.pas#L600-L620)
 
 ## Current State
 
 ### Working Features
 ✅ SQL query execution with validation
+✅ Multiple SQL query tabs with load/save
+✅ **v1.2+** Searchable table list with automatic discovery
 ✅ Table browsing with index/filter support
 ✅ CSV export functionality
 ✅ Connection string management
 ✅ Record count display
 ✅ Copy/paste from grid (Ctrl+C/Ctrl+V)
-✅ Error handling and messaging
-
-### Modified Files (Git Status)
-- `MainForm.dfm` - Modified (likely UI changes)
+✅ **v1.2+** Robust field component management
+✅ Error handling and messaging with recovery
 
 ### Recent Commits
-- **94c51c0**: "Initial commit: ADS SQL Commander v1.0"
+- **13a566d**: "Add searchable table list and fix ADO field component conflicts (v1.2)" - 2025-11-23
+- **e5d2577**: "Add multiple SQL query tabs and file management features (v1.1)" - 2025-11-22
+- **94c51c0**: "Initial commit: ADS SQL Commander v1.0" - 2025-11-22
 
 ## Code Quality Notes
 
 ### Strengths
 - Clean separation of UI and data logic
 - Comprehensive error handling with try-except blocks
+- **v1.2+**: Robust field component cleanup prevents ADO conflicts
+- **v1.2+**: Automatic error recovery with retry logic
 - Resource cleanup in FormClose
 - Helper functions for string processing
 - SQL validation before execution prevents runtime errors
+- **v1.2+**: File system-based table discovery works without system schema
+
+### Known Issues (Resolved in v1.2)
+- ~~ADO field component naming conflicts when switching tables~~ ✅ **FIXED in v1.2**
+  - Root cause: Dynamically created field components weren't properly destroyed
+  - Solution: `ClearDataSetFields()` procedure with disconnect, destroy, and FieldDefs.Clear
+  - Additional: Connection string reset + Application.ProcessMessages for cleanup cycle
+  - Recovery: Automatic retry mechanism for persistent conflicts
 
 ### Areas for Consideration
 - No query history or favorites functionality
@@ -188,18 +239,25 @@ Two-tier validation approach:
 
 3. **Execute**: Click Execute button, view results in DBGridSqlResults
 
-4. **Manage Multiple Queries**:
+4. **Browse Tables** (v1.2+):
+   - Select Table mode from RadioGroup1
+   - Application automatically scans database directory and populates table dropdown
+   - Select table from searchable dropdown (or type to filter)
+   - Optional: specify index and filter
+   - Click Execute
+
+5. **Manage Multiple Queries**:
    - Click "+ Add Tab" to create a new SQL query tab
    - Click on any tab to switch between queries
    - Click "- Remove Tab" to delete the current tab (requires confirmation)
    - Each tab maintains its own SQL content independently
 
-5. **Load/Save SQL Files**:
+6. **Load/Save SQL Files**:
    - Click "Load SQL..." to open a .sql file into the active tab
    - Click "Save SQL..." to save the active tab's SQL to a file
    - File dialogs support .sql, .txt, and all file types
 
-6. **Export**: Click Export CSV button, choose location
+7. **Export**: Click Export CSV button, choose location
 
 ## Future Enhancement Ideas (from README)
 
@@ -245,8 +303,28 @@ Two-tier validation approach:
 - Error messages displayed via `ShowMessage()` dialogs
 - Grid supports standard Windows clipboard operations
 
+### Important v1.2 Implementation Notes
+
+**ADO Field Component Management:**
+- Always call `ClearDataSetFields()` before opening any dataset
+- This is CRITICAL to prevent "component name already exists" errors
+- The issue was intermittent because it depended on field component lifecycle timing
+- Solution requires: disconnect fields, destroy in reverse order, clear FieldDefs
+
+**Table Discovery:**
+- Works with ADS Local Server by scanning file system (no system schema access needed)
+- Looks for both .adt (native) and .dbf (compatibility) formats
+- Case-insensitive connection string parsing for Data Source extraction
+- Uses `FindFirst`/`FindNext` for file system enumeration
+
+**Error Recovery:**
+- `ExecuteBtnClick` has built-in retry logic for component naming conflicts
+- Detects "already exists" in error message and attempts full reset
+- Uses `Application.ProcessMessages` to allow Windows message queue processing
+- Connection string reset forces complete ADO internal cleanup
+
 ---
 
-**Last Updated**: 2025-11-22
-**Version**: 1.0
-**Status**: Production-ready with pending UI modifications
+**Last Updated**: 2025-11-23
+**Version**: 1.2
+**Status**: Production-ready - Searchable table list with robust field management
