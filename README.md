@@ -1,14 +1,28 @@
-# ADS Query Tool
+# ADS SQL Commander
 
-A powerful Delphi 7 database utility for querying and managing Advantage Database Server (ADS) databases with advanced SQL execution and data export capabilities.
+A powerful Delphi 7 database utility for querying and managing Advantage Database Server (ADS) databases with advanced SQL execution, multiple query tabs, and data export capabilities.
 
 ## Overview
 
-ADS Query Tool is a desktop application built with Delphi 7 that provides a user-friendly interface for executing SQL queries and browsing tables in Advantage Database Server databases. The tool features robust error handling, SQL syntax validation, and CSV export functionality.
+ADS SQL Commander is a desktop application built with Delphi 7 that provides a user-friendly interface for executing SQL queries and browsing tables in Advantage Database Server databases. The tool features multiple SQL query tabs, robust error handling, SQL syntax validation, file management, and CSV export functionality.
 
 ## Features
 
 ### Core Functionality
+
+- **Multiple SQL Query Tabs**
+  - Create and manage multiple SQL query tabs simultaneously
+  - Each tab maintains independent SQL content
+  - Add new tabs with the "+ Add Tab" button
+  - Remove tabs with the "- Remove Tab" button (with confirmation)
+  - Switch between tabs to work on different queries
+  - Execute only the SQL from the currently active tab
+
+- **SQL File Management**
+  - Load SQL files (.sql, .txt) into the active tab with "Load SQL..." button
+  - Save active tab's SQL to file with "Save SQL..." button
+  - Automatic filename suggestions based on tab names
+  - Preserves multi-line formatting when saving/loading
 
 - **Dual Query Modes**
   - **SQL Query Mode**: Execute custom SQL commands with full syntax validation
@@ -22,9 +36,12 @@ ADS Query Tool is a desktop application built with Delphi 7 that provides a user
 ### SQL Query Features
 
 - **Advanced SQL Editor**
+  - Tabbed interface for multiple SQL queries
   - Multi-line SQL command input with proper formatting preservation
   - Automatic line break handling that maintains SQL syntax integrity
   - Support for complex queries with proper spacing and readability
+  - Courier font for better code readability
+  - Word wrap disabled for cleaner SQL formatting
 
 - **SQL Syntax Validation**
   - Client-side validation for basic SQL structure
@@ -92,10 +109,13 @@ ADS Query Tool is a desktop application built with Delphi 7 that provides a user
 - `TADOTable` - Direct table access
 - `TDataSource` - Data binding
 - `TDBGrid` - Results display
-- `TMemo` - Multi-line text input (Connection string, SQL commands)
+- `TPageControl` - Tabbed interface for multiple SQL queries
+- `TTabSheet` - Individual query tab pages
+- `TMemo` - Multi-line text input (Connection string, SQL commands in each tab)
 - `TEdit` - Single-line input (Table settings)
 - `TRadioGroup` - Mode selection
-- `TSaveDialog` - File save operations
+- `TOpenDialog` - SQL file open dialog
+- `TSaveDialog` - File save operations (CSV export, SQL save)
 - `TButton` / `TBitBtn` - Action triggers
 
 ### Key Functions
@@ -133,10 +153,29 @@ Two-tier validation system providing both client-side and server-side SQL syntax
    Advantage Server Type=ADS_LOCAL_SERVER;
    ```
 
+### Managing Multiple SQL Queries
+
+1. **Add a New Tab**: Click the **+ Add Tab** button to create a new query tab
+2. **Switch Tabs**: Click on any tab header to switch between different queries
+3. **Remove a Tab**: Click the **- Remove Tab** button (confirmation required, cannot remove last tab)
+4. Each tab maintains its own independent SQL content
+
+### Loading and Saving SQL Files
+
+1. **Load SQL File**:
+   - Click the **Load SQL...** button
+   - Select a .sql or .txt file from the file dialog
+   - File content loads into the currently active tab
+
+2. **Save SQL File**:
+   - Click the **Save SQL...** button
+   - Choose a location and filename (defaults to tab name, e.g., "Query_1.sql")
+   - Active tab's SQL saves to the file
+
 ### Executing SQL Queries
 
 1. Select the **Query** radio button
-2. Enter your SQL command in the **SqlCommand** memo field:
+2. Enter your SQL command in the active tab's SQL editor:
    ```sql
    SELECT item, description
    FROM arinvt01
@@ -144,6 +183,7 @@ Two-tier validation system providing both client-side and server-side SQL syntax
    ```
 3. Click **Execute** button
 4. Results appear in the data grid with record count displayed
+5. Only the SQL from the currently active tab is executed
 
 ### Browsing Tables
 
@@ -163,7 +203,7 @@ Two-tier validation system providing both client-side and server-side SQL syntax
 
 ### Copying Cell Values
 
-- **Method 1**: Select a cell in the grid, press Ctrl+C, click in SqlCommand memo, press Ctrl+V
+- **Method 1**: Select a cell in the grid, press Ctrl+C, click in SQL editor, press Ctrl+V
 - **Method 2**: Select a cell and use standard Windows clipboard operations
 
 ## Error Handling
@@ -214,7 +254,15 @@ Josue - MySQL Developer and Architect
 
 ## Version History
 
-**Version 1.0** (Current)
+**Version 1.1** (Current)
+- Multiple SQL query tabs with add/remove functionality
+- Load and save SQL files (.sql, .txt)
+- Enhanced UI with tabbed interface
+- Automatic filename suggestions for SQL saves
+- Independent SQL content per tab
+- Tab-specific query execution
+
+**Version 1.0**
 - Initial release
 - SQL query execution with validation
 - Table browse mode

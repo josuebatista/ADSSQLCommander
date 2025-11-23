@@ -1,9 +1,9 @@
 object ADSform: TADSform
-  Left = 1437
-  Top = 63
+  Left = 504
+  Top = 133
   Width = 1200
   Height = 800
-  Caption = 'ADS SQL Commander'
+  Caption = 'ADS SQL Commander - v1.1'
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -11,7 +11,9 @@ object ADSform: TADSform
   Font.Name = 'MS Sans Serif'
   Font.Style = []
   OldCreateOrder = False
+  Position = poScreenCenter
   OnClose = FormClose
+  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel
@@ -21,7 +23,7 @@ object ADSform: TADSform
     Height = 13
     Caption = 'Table'
   end
-  object Label2: TLabel
+  object LabelSqlCommand: TLabel
     Left = 16
     Top = 166
     Width = 83
@@ -48,9 +50,9 @@ object ADSform: TADSform
     Height = 13
     Caption = 'Table Filter'
   end
-  object Label5: TLabel
+  object LabelConnectionStrring: TLabel
     Left = 16
-    Top = 104
+    Top = 83
     Width = 102
     Height = 13
     Caption = 'Connection String'
@@ -61,9 +63,9 @@ object ADSform: TADSform
     Font.Style = [fsBold]
     ParentFont = False
   end
-  object Label6: TLabel
+  object LabelSqlResults: TLabel
     Left = 16
-    Top = 327
+    Top = 403
     Width = 71
     Height = 13
     Caption = 'SQL Results'
@@ -74,11 +76,11 @@ object ADSform: TADSform
     Font.Style = [fsBold]
     ParentFont = False
   end
-  object DBGrid1: TDBGrid
+  object DBGridSqlResults: TDBGrid
     Left = 17
-    Top = 343
+    Top = 424
     Width = 1150
-    Height = 404
+    Height = 323
     DataSource = DataSource
     TabOrder = 0
     TitleFont.Charset = DEFAULT_CHARSET
@@ -129,11 +131,11 @@ object ADSform: TADSform
     Height = 21
     TabOrder = 5
   end
-  object ConnectStr: TMemo
+  object ConnectString: TMemo
     Left = 17
-    Top = 120
+    Top = 99
     Width = 1150
-    Height = 41
+    Height = 50
     Font.Charset = ANSI_CHARSET
     Font.Color = clWindowText
     Font.Height = -8
@@ -149,24 +151,74 @@ object ADSform: TADSform
     ScrollBars = ssVertical
     TabOrder = 6
   end
-  object SqlCommand: TMemo
+  object PageControlSql: TPageControl
     Left = 16
     Top = 182
     Width = 1153
-    Height = 137
-    Font.Charset = ANSI_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -12
-    Font.Name = 'Courier'
-    Font.Style = []
-    Lines.Strings = (
-      'select * from arinvt01')
-    ParentFont = False
+    Height = 211
+    ActivePage = TabSheet1
     TabOrder = 7
+    object TabSheet1: TTabSheet
+      Caption = 'Query 1'
+      object SqlCommand1: TMemo
+        Left = 0
+        Top = 0
+        Width = 1145
+        Height = 183
+        Align = alClient
+        Font.Charset = ANSI_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -12
+        Font.Name = 'Courier'
+        Font.Style = []
+        Lines.Strings = (
+          'select * from arinvt01')
+        ParentFont = False
+        ScrollBars = ssBoth
+        TabOrder = 0
+        WordWrap = False
+      end
+    end
+  end
+  object AddTabBtn: TButton
+    Left = 1012
+    Top = 154
+    Width = 75
+    Height = 25
+    Caption = '+ Add Tab'
+    TabOrder = 10
+    OnClick = AddTabBtnClick
+  end
+  object RemoveTabBtn: TButton
+    Left = 1092
+    Top = 154
+    Width = 75
+    Height = 25
+    Caption = '- Remove Tab'
+    TabOrder = 11
+    OnClick = RemoveTabBtnClick
+  end
+  object LoadSqlBtn: TButton
+    Left = 744
+    Top = 154
+    Width = 75
+    Height = 25
+    Caption = 'Load SQL...'
+    TabOrder = 12
+    OnClick = LoadSqlBtnClick
+  end
+  object SaveSqlBtn: TButton
+    Left = 824
+    Top = 154
+    Width = 75
+    Height = 25
+    Caption = 'Save SQL...'
+    TabOrder = 13
+    OnClick = SaveSqlBtnClick
   end
   object CloseAllBtn: TBitBtn
     Left = 1067
-    Top = 80
+    Top = 10
     Width = 100
     Height = 25
     Caption = '&Close All'
@@ -225,6 +277,24 @@ object ADSform: TADSform
   end
   object ExportSaveDialog: TSaveDialog
     Left = 408
+    Top = 480
+  end
+  object OpenSqlDialog: TOpenDialog
+    DefaultExt = 'sql'
+    Filter = 
+      'SQL Files (*.sql)|*.sql|Text Files (*.txt)|*.txt|All Files (*.*)' +
+      '|*.*'
+    Title = 'Load SQL File'
+    Left = 448
+    Top = 480
+  end
+  object SaveSqlDialog: TSaveDialog
+    DefaultExt = 'sql'
+    Filter = 
+      'SQL Files (*.sql)|*.sql|Text Files (*.txt)|*.txt|All Files (*.*)' +
+      '|*.*'
+    Title = 'Save SQL File'
+    Left = 488
     Top = 480
   end
 end
